@@ -130,7 +130,8 @@ class MixedBlock(nn.Module):
 
 
 class PoseTransformerV2(nn.Module):
-    def __init__(self, num_frame=9, num_joints=17, in_chans=2,
+    def __init__(self, embed_dim_ratio, depth, frames, number_of_kept_frames, number_of_kept_coeffs,
+                num_frame=9, num_joints=17, in_chans=2,
                  num_heads=8, mlp_ratio=2., qkv_bias=True, qk_scale=None,
                  drop_rate=0., attn_drop_rate=0., drop_path_rate=0.2,  norm_layer=None, args=None):
         """    ##########hybrid_backbone=None, representation_size=None,
@@ -152,12 +153,12 @@ class PoseTransformerV2(nn.Module):
         super().__init__()
 
         norm_layer = norm_layer or partial(nn.LayerNorm, eps=1e-6)
-        embed_dim_ratio = args.embed_dim_ratio
-        depth = args.depth
+        # embed_dim_ratio = args.embed_dim_ratio
+        # depth = args.depth
         embed_dim = embed_dim_ratio * num_joints   #### temporal embed_dim is num_joints * spatial embedding dim ratio
         out_dim = num_joints * 3    #### output dimension is num_joints * 3
-        self.num_frame_kept = args.number_of_kept_frames
-        self.num_coeff_kept = args.number_of_kept_coeffs if args.number_of_kept_coeffs else self.num_frame_kept
+        self.num_frame_kept = number_of_kept_frames
+        self.num_coeff_kept = number_of_kept_coeffs if number_of_kept_coeffs else self.num_frame_kept
 
         ### spatial patch embedding
         self.Joint_embedding = nn.Linear(in_chans, embed_dim_ratio)

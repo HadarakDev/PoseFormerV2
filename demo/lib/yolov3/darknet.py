@@ -8,8 +8,8 @@ import cv2
 import os
 import sys
 
-from lib.yolov3.util import convert2cpu as cpu
-from lib.yolov3.util import predict_transform
+from demo.lib.yolov3.util import convert2cpu as cpu
+from demo.lib.yolov3.util import predict_transform
 
 
 class test_net(nn.Module):
