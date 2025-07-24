@@ -111,7 +111,7 @@ def gen_video_kpts(video, det_dim=416, num_peroson=1, gen_output=False):
         bboxs, scores = yolo_det(frame, human_model, reso=det_dim, confidence=args.thred_score)
 
         if bboxs is None or not bboxs.any():
-            print('No person detected!')
+            print(f'No person detected at frame {ii}!')
             if bboxs_pre is not None:
                 bboxs = bboxs_pre
                 scores = scores_pre
