@@ -101,67 +101,76 @@ def gen_video_kpts(video, det_dim=416, num_peroson=1, gen_output=False):
     print(f"Video Length {video_length}")
     kpts_result = []
     scores_result = []
+    bboxs_pre = None
     for ii in tqdm(range(video_length)):
         ret, frame = cap.read()
 
         if not ret:
             continue
-
+        
         bboxs, scores = yolo_det(frame, human_model, reso=det_dim, confidence=args.thred_score)
 
         if bboxs is None or not bboxs.any():
             print('No person detected!')
-            bboxs = bboxs_pre
-            scores = scores_pre
+            if bboxs_pre is not None:
+                bboxs = bboxs_pre
+                scores = scores_pre
+                not_detected = False
+            else:
+                not_detected = True
         else:
             bboxs_pre = copy.deepcopy(bboxs) 
-            scores_pre = copy.deepcopy(scores) 
+            scores_pre = copy.deepcopy(scores)
+            not_detected = False
+
+        
 
         # Using Sort to track people
-        people_track = people_sort.update(bboxs)
+        if not_detected == False:
+            people_track = people_sort.update(bboxs)
 
-        # Track the first two people in the video and remove the ID
-        if people_track.shape[0] == 1:
-            people_track_ = people_track[-1, :-1].reshape(1, 4)
-        elif people_track.shape[0] >= 2:
-            people_track_ = people_track[-num_peroson:, :-1].reshape(num_peroson, 4)
-            people_track_ = people_track_[::-1]
-        else:
-            continue
+            # Track the first two people in the video and remove the ID
+            if people_track.shape[0] == 1:
+                people_track_ = people_track[-1, :-1].reshape(1, 4)
+            elif people_track.shape[0] >= 2:
+                people_track_ = people_track[-num_peroson:, :-1].reshape(num_peroson, 4)
+                people_track_ = people_track_[::-1]
+            else:
+                continue
 
-        track_bboxs = []
-        for bbox in people_track_:
-            bbox = [round(i, 2) for i in list(bbox)]
-            track_bboxs.append(bbox)
+            track_bboxs = []
+            for bbox in people_track_:
+                bbox = [round(i, 2) for i in list(bbox)]
+                track_bboxs.append(bbox)
 
-        with torch.no_grad():
-            # bbox is coordinate location
-            inputs, origin_img, center, scale = PreProcess(frame, track_bboxs, cfg, num_peroson)
+            with torch.no_grad():
+                # bbox is coordinate location
+                inputs, origin_img, center, scale = PreProcess(frame, track_bboxs, cfg, num_peroson)
 
-            inputs = inputs[:, [2, 1, 0]]
+                inputs = inputs[:, [2, 1, 0]]
 
-            if torch.cuda.is_available():
-                inputs = inputs.cuda()
-            output = pose_model(inputs)
+                if torch.cuda.is_available():
+                    inputs = inputs.cuda()
+                output = pose_model(inputs)
 
-            # compute coordinate
-            preds, maxvals = get_final_preds(cfg, output.clone().cpu().numpy(), np.asarray(center), np.asarray(scale))
+                # compute coordinate
+                preds, maxvals = get_final_preds(cfg, output.clone().cpu().numpy(), np.asarray(center), np.asarray(scale))
 
-        kpts = np.zeros((num_peroson, 17, 2), dtype=np.float32)
-        scores = np.zeros((num_peroson, 17), dtype=np.float32)
-        for i, kpt in enumerate(preds):
-            kpts[i] = kpt
+            kpts = np.zeros((num_peroson, 17, 2), dtype=np.float32)
+            scores = np.zeros((num_peroson, 17), dtype=np.float32)
+            for i, kpt in enumerate(preds):
+                kpts[i] = kpt
 
-        for i, score in enumerate(maxvals):
-            scores[i] = score.squeeze()
+            for i, score in enumerate(maxvals):
+                scores[i] = score.squeeze()
 
-        kpts_result.append(kpts)
-        scores_result.append(scores)
+            kpts_result.append(kpts)
+            scores_result.append(scores)
 
     keypoints = np.array(kpts_result)
     scores = np.array(scores_result)
 
     keypoints = keypoints.transpose(1, 0, 2, 3)  # (T, M, N, 2) --> (M, T, N, 2)
     scores = scores.transpose(1, 0, 2)  # (T, M, N) --> (M, T, N)
-
+    print(np.shape(keypoints))
     return keypoints, scores
